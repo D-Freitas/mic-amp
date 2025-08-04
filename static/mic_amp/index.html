@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mic Amp Web</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body { background-color: #1e1f22; }
+    input[type="range"]::-webkit-slider-thumb {
+      background: white;
+      border-radius: 9999px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="text-white font-sans flex items-center justify-center min-h-screen px-4">
+  <div class="bg-[#2b2d31] w-full max-w-xl rounded-lg shadow-md p-8 space-y-6">
+    <h1 class="text-2xl font-bold text-gray-100 text-center mb-4">Mic Amp</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <label class="block text-sm text-gray-300 mb-1">Input Device</label>
+        <select id="input" class="w-full bg-[#1e1f22] text-white border border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500">
+          <option>Carregando...</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm text-gray-300 mb-1">Output Device</label>
+        <select id="output" class="w-full bg-[#1e1f22] text-white border border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500">
+          <option>Carregando...</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="flex justify-between text-sm text-gray-300 mb-1">
+        <span class="relative group cursor-help">
+          Output Gain
+          <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-black bg-opacity-80 text-white text-xs rounded px-2 py-1 z-10 whitespace-nowrap">
+            Ajusta o volume final enviado ao destino. Útil para reforçar o sinal.
+          </span>
+        </span>
+        <span id="gainVal" class="text-purple-400">1.8</span>
+      </label>
+      <input type="range" id="gain" min="1" max="20" step="0.1" value="10" class="w-full accent-purple-500" />
+    </div>
+
+    <div>
+      <label class="flex justify-between text-sm text-gray-300 mb-1">
+        <span class="relative group cursor-help">
+          Input Gain
+          <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-black bg-opacity-80 text-white text-xs rounded px-2 py-1 z-10 whitespace-nowrap">
+            Controla o volume do microfone antes do processamento. Evite exageros para não distorcer.
+          </span>
+        </span>
+        <span id="postGainVal" class="text-purple-400">1.8</span>
+      </label>
+      <input type="range" id="post_gain" min="0.5" max="5" step="0.1" value="1.8" class="w-full accent-purple-500" />
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+
+    socket.on("devices", (data) => {
+      const input = document.getElementById('input');
+      const output = document.getElementById('output');
+
+      input.innerHTML = '';
+      output.innerHTML = '';
+
+      data.inputs.forEach(d => {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.text = d;
+        input.appendChild(opt);
+      });
+
+      data.outputs.forEach(d => {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.text = d;
+        output.appendChild(opt);
+      });
+
+      // Defaults
+      input.value = data.inputs.find(name => name.includes("H510")) || data.inputs[0];
+      output.value = data.outputs.find(name => name.includes("BlackHole")) || data.outputs[0];
+
+      applyStart();
+    });
+
+    function loadDevices() {
+      socket.emit("get_devices");
+    }
+
+    function applyStart() {
+      socket.emit("start_stream", {
+        input: document.getElementById('input').value,
+        output: document.getElementById('output').value
+      });
+    }
+
+    function updateGain() {
+      const gain = parseFloat(document.getElementById("gain").value);
+      const postGain = parseFloat(document.getElementById("post_gain").value);
+
+      console.log(gain=== null)
+      console.log(postGain === null)
+
+      document.getElementById("gainVal").textContent = gain;
+      document.getElementById("postGainVal").textContent = postGain;
+
+      socket.emit("set_gain", { gain, post_gain: postGain });
+    }
+
+    document.getElementById("input").addEventListener("change", applyStart);
+    document.getElementById("output").addEventListener("change", applyStart);
+    document.getElementById("gain").addEventListener("input", updateGain);
+    document.getElementById("post_gain").addEventListener("input", updateGain);
+
+    loadDevices();
+  </script>
+</body>
+</html>
